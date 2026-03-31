@@ -354,6 +354,17 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      get_technician_rankings: {
+        Args: {}
+        Returns: {
+          id: string
+          name: string
+          completed: number
+          active: number
+          rank: number
+          isMe: boolean
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "technician"

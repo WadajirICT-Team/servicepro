@@ -41,6 +41,7 @@ const adminNav = [
 ];
 
 const techNav = [
+  { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "My Tickets", url: "/tickets", icon: Wrench },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
