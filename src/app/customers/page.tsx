@@ -12,11 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PageSpinner } from "@/components/ui/spinner";
-import { Plus, Search, Users, Pencil, Trash2, Eye, AlertTriangle, Download, ArrowUpDown, ArrowUp, ArrowDown, Wrench } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/page-skeletons";
+import { Plus, Search, Users, Pencil, Trash2, Eye, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { toast } from "sonner";
-import { exportToXlsx } from "@/lib/exportExcel";
 import { ProtectedRoute } from "@/components/RouteGuards";
 
 export default function CustomersPage() {
@@ -136,20 +135,7 @@ export default function CustomersPage() {
         return sortDir === "asc" ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />;
     };
 
-    const exportExcel = () => {
-        exportToXlsx({
-            filename: "customers.xlsx",
-            sheetName: "Customers",
-            headers: ["Name", "Phone", "Email", "Address", "Added"],
-            rows: filtered.map((c) => [
-                c.full_name,
-                c.phone,
-                c.email || "",
-                c.address || "",
-                new Date(c.created_at).toLocaleDateString(),
-            ]),
-        });
-    };
+
 
     const renderForm = (values: typeof form, onChange: (v: typeof form) => void, onSubmit: (e: React.FormEvent) => void, buttonLabel: string) => (
         <form onSubmit={onSubmit} className="space-y-4">
@@ -200,9 +186,7 @@ export default function CustomersPage() {
                                 {renderForm(form, setForm, handleCreate, "Add Customer")}
                             </DialogContent>
                         </Dialog>
-                        <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={exportExcel} disabled={filtered.length === 0}>
-                            <Download className="h-4 w-4 mr-2" /> Export Excel
-                        </Button>
+
                     </div>
                 </div>
 
@@ -214,7 +198,7 @@ export default function CustomersPage() {
                 <Card>
                     <CardContent className="p-0">
                         {loading ? (
-                            <PageSpinner label="Loading customers..." />
+                            <TableSkeleton columns={6} rows={8} />
                         ) : filtered.length === 0 ? (
                             <div className="py-12 text-center text-muted-foreground">
                                 <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -249,9 +233,6 @@ export default function CustomersPage() {
                                                 <TableCell className="text-muted-foreground">{new Date(c.created_at).toLocaleDateString()}</TableCell>
                                                 <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                                                     <div className="flex justify-end gap-1">
-                                                        <Button variant="ghost" size="icon" onClick={() => router.push(`/tickets?customer=${c.id}`)} title="View Tickets">
-                                                            <Wrench className="h-4 w-4" />
-                                                        </Button>
                                                         <Button variant="ghost" size="icon" onClick={() => router.push(`/customers/${c.id}`)}>
                                                             <Eye className="h-4 w-4" />
                                                         </Button>

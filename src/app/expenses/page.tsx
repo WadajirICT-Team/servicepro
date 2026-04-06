@@ -13,11 +13,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, DollarSign, TrendingDown, Pencil, Search, Download, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Trash2, DollarSign, TrendingDown, Pencil, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { TablePagination } from "@/components/ui/table-pagination";
-import { PageSpinner } from "@/components/ui/spinner";
+import { TableSkeleton } from "@/components/ui/page-skeletons";
 import { toast } from "sonner";
-import { exportToXlsx } from "@/lib/exportExcel";
 import { ProtectedRoute } from "@/components/RouteGuards";
 
 const DEFAULT_CATEGORIES = ["parts", "fuel", "tools", "office", "utilities", "salary", "marketing", "general"];
@@ -84,6 +83,8 @@ export default function ExpensesPage() {
 
     const handleCreate = async () => {
         if (!form.description || !form.amount) { toast.error("Description and amount are required"); return; }
+        const today = new Date().toISOString().split("T")[0];
+        if (form.expense_date > today) { toast.error("Expense date cannot be in the future"); return; }
         setSubmitting(true);
         const { error } = await supabase.from("expenses").insert({
             description: form.description,
@@ -110,6 +111,8 @@ export default function ExpensesPage() {
 
     const handleEdit = async () => {
         if (!editTarget || !editForm.description || !editForm.amount) { toast.error("Description and amount are required"); return; }
+        const today = new Date().toISOString().split("T")[0];
+        if (editForm.expense_date > today) { toast.error("Expense date cannot be in the future"); return; }
         setSubmitting(true);
         const { error } = await supabase.from("expenses").update({
             description: editForm.description,
@@ -174,19 +177,7 @@ export default function ExpensesPage() {
         return sortDir === "asc" ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />;
     };
 
-    const exportExcel = () => {
-        exportToXlsx({
-            filename: "expenses.xlsx",
-            sheetName: "Expenses",
-            headers: ["Date", "Description", "Category", "Amount"],
-            rows: filtered.map((e) => [
-                new Date(e.expense_date).toLocaleDateString(),
-                e.description,
-                e.category,
-                Number(e.amount),
-            ]),
-        });
-    };
+
 
     const categoryColor: Record<string, string> = {
         parts: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
@@ -219,7 +210,7 @@ export default function ExpensesPage() {
             </div>
             <div>
                 <Label>Date</Label>
-                <Input type="date" value={values.expense_date} onChange={(e) => onChange({ ...values, expense_date: e.target.value })} />
+                <Input type="date" value={values.expense_date} onChange={(e) => onChange({ ...values, expense_date: e.target.value })} max={new Date().toISOString().split("T")[0]} />
             </div>
         </div>
     );
@@ -279,9 +270,7 @@ export default function ExpensesPage() {
                             {(Array.isArray(categories) ? categories : DEFAULT_CATEGORIES).map((c) => <SelectItem key={String(c)} value={String(c)}>{String(c).charAt(0).toUpperCase() + String(c).slice(1)}</SelectItem>)}
                         </SelectContent>
                     </Select>
-                    <Button className="w-full lg:w-auto" variant="outline" size="sm" onClick={exportExcel} disabled={filtered.length === 0}>
-                        <Download className="h-4 w-4 mr-2" /> Export Excel
-                    </Button>
+
                 </div>
 
                 {/* Date range filter */}
@@ -310,7 +299,7 @@ export default function ExpensesPage() {
                     <CardHeader><CardTitle>All Expenses</CardTitle></CardHeader>
                     <CardContent className="p-0">
                         {loading ? (
-                            <PageSpinner label="Loading expenses..." />
+                            <TableSkeleton columns={5} rows={6} />
                         ) : filtered.length === 0 ? (
                             <p className="text-muted-foreground text-center py-8">No expenses found.</p>
                         ) : (

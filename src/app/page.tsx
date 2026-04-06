@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PageSpinner } from "@/components/ui/spinner";
+import { DashboardSkeleton } from "@/components/ui/page-skeletons";
 import { Wrench, Clock, CheckCircle, DollarSign, Plus, ArrowRight, Trophy, Medal, Award } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -174,7 +174,7 @@ export default function Dashboard() {
                 </div>
 
                 {loading ? (
-                    <PageSpinner label="Loading dashboard..." />
+                    <DashboardSkeleton />
                 ) : (
                     <>
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

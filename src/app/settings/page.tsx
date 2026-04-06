@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
-import { PageSpinner } from "@/components/ui/spinner";
+import { SettingsTabSkeleton } from "@/components/ui/page-skeletons";
 import { Building2, Palette, User, Cog, Save, Plus, X, KeyRound, Sun, Moon, Monitor } from "lucide-react";
 import { toast } from "sonner";
 import { ProtectedRoute } from "@/components/RouteGuards";
@@ -82,7 +82,7 @@ function BusinessProfileTab() {
         setSaving(false);
     };
 
-    if (loading) return <PageSpinner label="Loading business settings..." />;
+    if (loading) return <SettingsTabSkeleton />;
 
     return (
         <div className="space-y-6">
@@ -214,7 +214,7 @@ function MyAccountTab() {
         setSaving(false);
     };
 
-    if (loading) return <PageSpinner label="Loading profile..." />;
+    if (loading) return <SettingsTabSkeleton />;
 
     return (
         <div className="space-y-6">
@@ -338,7 +338,7 @@ function SystemConfigTab() {
         setSaving(false);
     };
 
-    if (loading) return <PageSpinner label="Loading configuration..." />;
+    if (loading) return <SettingsTabSkeleton />;
 
     return (
         <div className="space-y-6">

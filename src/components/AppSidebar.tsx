@@ -9,6 +9,7 @@ import {
   LogOut,
   Receipt,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { usePathname } from "next/navigation";
@@ -35,6 +36,7 @@ const adminNav = [
   { title: "Service Tickets", url: "/tickets", icon: Wrench },
   { title: "Customers", url: "/customers", icon: Users },
   { title: "Technicians", url: "/technicians", icon: HardHat },
+  { title: "Users", url: "/users", icon: ShieldCheck },
   { title: "Expenses", url: "/expenses", icon: Receipt },
   { title: "Reports", url: "/reports", icon: BarChart3 },
   { title: "Settings", url: "/settings", icon: Settings },

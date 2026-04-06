@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { ArrowLeft, Phone, Mail, Pencil, Save, Undo2, Wrench, CheckCircle, Clock, Trophy } from "lucide-react";
-import { PageSpinner } from "@/components/ui/spinner";
+import { TechnicianDetailSkeleton } from "@/components/ui/page-skeletons";
 import { toast } from "sonner";
 import { ProtectedRoute } from "@/components/RouteGuards";
 
@@ -35,6 +36,8 @@ export default function TechnicianDetailPage() {
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState({ full_name: "", phone: "" });
     const [submitting, setSubmitting] = useState(false);
+    const [ticketPage, setTicketPage] = useState(1);
+    const [ticketPageSize, setTicketPageSize] = useState(10);
 
     const fetchData = async () => {
         if (!id) return;
@@ -94,7 +97,7 @@ export default function TechnicianDetailPage() {
         setEditing(false);
     };
 
-    if (!profile) return <ProtectedRoute><PageSpinner label="Loading technician..." /></ProtectedRoute>;
+    if (!profile) return <ProtectedRoute><TechnicianDetailSkeleton /></ProtectedRoute>;
 
     const activeTickets = tickets.filter(t => ["new", "diagnosed", "in_progress"].includes(t.status));
     const completedTickets = tickets.filter(t => ["completed", "invoiced"].includes(t.status));
@@ -245,7 +248,7 @@ export default function TechnicianDetailPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {tickets.map((t) => (
+                                            {tickets.slice((ticketPage - 1) * ticketPageSize, ticketPage * ticketPageSize).map((t) => (
                                                 <TableRow key={t.id} className="cursor-pointer" onClick={() => router.push(`/tickets/${t.id}`)}>
                                                     <TableCell className="font-medium">#{t.ticket_number}</TableCell>
                                                     <TableCell>{t.customers?.full_name || "—"}</TableCell>
@@ -263,6 +266,7 @@ export default function TechnicianDetailPage() {
                                     </Table>
                                 )}
                             </CardContent>
+                            <TablePagination currentPage={ticketPage} totalItems={tickets.length} pageSize={ticketPageSize} onPageChange={setTicketPage} onPageSizeChange={setTicketPageSize} />
                         </Card>
                     </div>
                 </div>

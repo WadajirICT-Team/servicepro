@@ -13,11 +13,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PageSpinner } from "@/components/ui/spinner";
-import { UserPlus, Pencil, Trash2, Phone, Eye, AlertTriangle, KeyRound, Search, Download, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/page-skeletons";
+import { UserPlus, Pencil, Trash2, Phone, Eye, AlertTriangle, KeyRound, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { toast } from "sonner";
-import { exportToXlsx } from "@/lib/exportExcel";
 import { ProtectedRoute } from "@/components/RouteGuards";
 
 interface Technician {
@@ -44,7 +43,7 @@ export default function TechniciansPage() {
     const [editTarget, setEditTarget] = useState<Technician | null>(null);
     const [passwordTarget, setPasswordTarget] = useState<Technician | null>(null);
     const [newPassword, setNewPassword] = useState("");
-    const [createForm, setCreateForm] = useState({ email: "", password: "", full_name: "", role: "technician" });
+    const [createForm, setCreateForm] = useState({ email: "", password: "", full_name: "" });
     const [editForm, setEditForm] = useState({ full_name: "", phone: "", is_active: true });
     const [submitting, setSubmitting] = useState(false);
     const { role } = useAuth();
@@ -68,22 +67,7 @@ export default function TechniciansPage() {
         return sortDir === "asc" ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />;
     };
 
-    const exportExcel = () => {
-        const techList = technicians.filter((tech) => !search || tech.full_name?.toLowerCase().includes(search.toLowerCase()) || tech.phone?.toLowerCase().includes(search.toLowerCase()));
-        exportToXlsx({
-            filename: "technicians.xlsx",
-            sheetName: "Technicians",
-            headers: ["Name", "Phone", "Role", "Status", "Active Jobs", "Completed"],
-            rows: techList.map((t) => [
-                t.full_name || "",
-                t.phone || "",
-                (t.user_roles || []).map((r: any) => r.role).join(", "),
-                t.is_active ? "Active" : "Inactive",
-                t.activeJobs,
-                t.completedJobs,
-            ]),
-        });
-    };
+
 
     const getAuthHeaders = async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -143,7 +127,7 @@ export default function TechniciansPage() {
                 activeJobs: techTickets.filter((t: any) => ["new", "diagnosed", "in_progress"].includes(t.status)).length,
                 completedJobs: techTickets.filter((t: any) => ["completed", "invoiced"].includes(t.status)).length,
             };
-        });
+        }).filter((t) => t.user_roles.some((r: { role: string }) => r.role === "technician") && !t.user_roles.some((r: { role: string }) => r.role === "admin"));
         setTechnicians(techWithCounts);
         setLoading(false);
     };
@@ -158,16 +142,16 @@ export default function TechniciansPage() {
             const res = await fetch("/api/admin/users", {
                 method: "POST",
                 headers,
-                body: JSON.stringify({ email: createForm.email, password: createForm.password, full_name: createForm.full_name, role: createForm.role }),
+                body: JSON.stringify({ email: createForm.email, password: createForm.password, full_name: createForm.full_name, role: "technician" }),
             });
             const data = await res.json();
             if (!res.ok || data.error) {
                 toast.error(data.error || "Failed to create user");
                 return;
             }
-            toast.success(`${createForm.role === "admin" ? "Admin" : "Technician"} created successfully!`);
+            toast.success("Technician created successfully!");
             setCreateOpen(false);
-            setCreateForm({ email: "", password: "", full_name: "", role: "technician" });
+            setCreateForm({ email: "", password: "", full_name: "" });
             setTimeout(fetchData, 1000);
         } catch (err: any) {
             toast.error(err.message || "Failed to create user");
@@ -187,11 +171,13 @@ export default function TechniciansPage() {
         if (!editTarget) return;
         setSubmitting(true);
         try {
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from("profiles")
                 .update({ full_name: editForm.full_name, phone: editForm.phone || null, is_active: editForm.is_active })
-                .eq("id", editTarget.id);
+                .eq("id", editTarget.id)
+                .select();
             if (error) throw error;
+            if (!data || data.length === 0) throw new Error("No rows updated – please refresh and try again");
             toast.success("Technician updated successfully!");
             setEditOpen(false);
             fetchData();
@@ -263,18 +249,16 @@ export default function TechniciansPage() {
                         <p className="text-muted-foreground">{technicians.length} team members</p>
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={exportExcel} disabled={technicians.length === 0}>
-                            <Download className="h-4 w-4 mr-2" /> Export Excel
-                        </Button>
+
                         {isAdmin && (
                             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                                 <DialogTrigger asChild>
-                                    <Button className="w-full sm:w-auto"><UserPlus className="h-4 w-4 mr-2" /> Add User</Button>
+                                    <Button className="w-full sm:w-auto"><UserPlus className="h-4 w-4 mr-2" /> Add Technician</Button>
                                 </DialogTrigger>
                                 <DialogContent>
                                     <DialogHeader>
-                                        <DialogTitle>Create User</DialogTitle>
-                                        <DialogDescription>Add a new technician or admin to the team.</DialogDescription>
+                                        <DialogTitle>Add Technician</DialogTitle>
+                                        <DialogDescription>Add a new technician to the team.</DialogDescription>
                                     </DialogHeader>
                                     <form onSubmit={handleCreate} className="space-y-4">
                                         <div className="space-y-2">
@@ -289,18 +273,8 @@ export default function TechniciansPage() {
                                             <Label>Password *</Label>
                                             <Input type="password" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} required minLength={6} />
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label>Role *</Label>
-                                            <Select value={createForm.role} onValueChange={(v) => setCreateForm({ ...createForm, role: v })}>
-                                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="technician">Technician</SelectItem>
-                                                    <SelectItem value="admin">Admin</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
                                         <Button type="submit" className="w-full" disabled={submitting}>
-                                            {submitting ? "Creating..." : "Create User"}
+                                            {submitting ? "Creating..." : "Add Technician"}
                                         </Button>
                                     </form>
                                 </DialogContent>
@@ -319,7 +293,7 @@ export default function TechniciansPage() {
                 <Card>
                     <CardContent className="p-0">
                         {loading ? (
-                            <PageSpinner label="Loading team members..." />
+                            <TableSkeleton columns={7} rows={6} />
                         ) : technicians.length === 0 ? (
                             <div className="py-12 text-center text-muted-foreground">No team members yet.</div>
                         ) : (

@@ -15,14 +15,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { PageSpinner } from "@/components/ui/spinner";
-import { Plus, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, Trash2, CalendarIcon, Download } from "lucide-react";
+import { TicketsSkeleton } from "@/components/ui/page-skeletons";
+import { Plus, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, Trash2, CalendarIcon } from "lucide-react";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { toast } from "sonner";
 import { useSearchParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { exportToXlsx } from "@/lib/exportExcel";
 import { ProtectedRoute } from "@/components/RouteGuards";
 
 const STATUSES = ["new", "diagnosed", "in_progress", "completed", "invoiced"] as const;
@@ -60,7 +59,7 @@ import { Suspense } from "react";
 
 export default function TicketsPage() {
     return (
-        <Suspense fallback={<PageSpinner label="Loading tickets..." />}>
+        <Suspense fallback={<TicketsSkeleton />}>
             <TicketsContent />
         </Suspense>
     );
@@ -82,7 +81,7 @@ function TicketsContent() {
     const [bulkTech, setBulkTech] = useState<string>("");
     const [dialogOpen, setDialogOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<any>(null);
-    const [sortField, setSortField] = useState<SortField>("created_at");
+    const [sortField, setSortField] = useState<SortField>("ticket_number");
     const [sortDir, setSortDir] = useState<SortDir>("desc");
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -232,23 +231,7 @@ function TicketsContent() {
             return sortDir === "asc" ? cmp : -cmp;
         });
 
-    const exportExcel = () => {
-        exportToXlsx({
-            filename: "tickets.xlsx",
-            sheetName: "Tickets",
-            headers: ["#", "Status", "Priority", "Customer", "Appliance", "Technician", "Total", "Created"],
-            rows: filtered.map((t) => [
-                t.ticket_number,
-                t.status,
-                t.priority,
-                t.customers?.full_name || "",
-                t.appliance_type?.replace(/_/g, " ") || "",
-                (t._techNames || []).length > 0 ? (t._techNames || []).join(", ") : "Unassigned",
-                Number(t.total_cost || 0),
-                new Date(t.created_at).toLocaleDateString(),
-            ]),
-        });
-    };
+
 
     const toggleSelect = (id: string) => {
         setSelected((prev) => {
@@ -406,9 +389,7 @@ function TicketsContent() {
                                 </DialogContent>
                             </Dialog>
                         )}
-                        <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={exportExcel} disabled={filtered.length === 0}>
-                            <Download className="h-4 w-4 mr-2" /> Export Excel
-                        </Button>
+
                     </div>
                 </div>
 
@@ -510,7 +491,7 @@ function TicketsContent() {
 
                 <div className="space-y-3">
                     {loading ? (
-                        <PageSpinner label="Loading tickets..." />
+                        <TicketsSkeleton />
                     ) : filtered.length === 0 ? (
                         <Card><CardContent className="py-8 text-center text-muted-foreground">No tickets found.</CardContent></Card>
                     ) : (
