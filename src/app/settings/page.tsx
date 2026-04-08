@@ -15,7 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { SettingsTabSkeleton } from "@/components/ui/page-skeletons";
-import { Building2, Palette, User, Cog, Save, Plus, X, KeyRound, Sun, Moon, Monitor } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Building2, Palette, User, Cog, Save, Plus, X, KeyRound, Sun, Moon, Monitor, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { ProtectedRoute } from "@/components/RouteGuards";
 
@@ -269,13 +270,22 @@ function SystemConfigTab() {
     const [newApplianceLabel, setNewApplianceLabel] = useState("");
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [usedCategories, setUsedCategories] = useState<Set<string>>(new Set());
+    const [usedApplianceTypes, setUsedApplianceTypes] = useState<Set<string>>(new Set());
+    const [deleteConfirm, setDeleteConfirm] = useState<{ type: "category" | "appliance"; value: string; label: string } | null>(null);
 
     useEffect(() => {
         const fetch = async () => {
-            const { data } = await supabase.from("app_config").select("key, value");
-            if (data) {
-                const catRow = data.find((d: any) => d.key === "expense_categories");
-                const appRow = data.find((d: any) => d.key === "appliance_types");
+            const [configRes, expensesRes, ticketsRes] = await Promise.all([
+                supabase.from("app_config").select("key, value"),
+                supabase.from("expenses").select("category"),
+                supabase.from("service_tickets").select("appliance_type"),
+            ]);
+
+            // Parse config
+            if (configRes.data) {
+                const catRow = configRes.data.find((d: any) => d.key === "expense_categories");
+                const appRow = configRes.data.find((d: any) => d.key === "appliance_types");
                 
                 if (catRow) {
                     let parsed = catRow.value;
@@ -297,6 +307,16 @@ function SystemConfigTab() {
                     if (Array.isArray(parsed)) setApplianceTypes(parsed as { value: string; label: string }[]);
                 }
             }
+
+            // Build usage sets
+            const usedCats = new Set<string>();
+            (expensesRes.data || []).forEach((e: any) => { if (e.category) usedCats.add(e.category); });
+            setUsedCategories(usedCats);
+
+            const usedApps = new Set<string>();
+            (ticketsRes.data || []).forEach((t: any) => { if (t.appliance_type) usedApps.add(t.appliance_type); });
+            setUsedApplianceTypes(usedApps);
+
             setLoading(false);
         };
         fetch();
@@ -309,8 +329,12 @@ function SystemConfigTab() {
         setNewCategory("");
     };
 
-    const removeCategory = (cat: string) => {
-        setCategories(categories.filter((c) => c !== cat));
+    const requestRemoveCategory = (cat: string) => {
+        if (usedCategories.has(cat)) {
+            toast.error(`Cannot delete "${cat}" — it is used by existing expenses`);
+            return;
+        }
+        setDeleteConfirm({ type: "category", value: cat, label: cat });
     };
 
     const addApplianceType = () => {
@@ -321,8 +345,24 @@ function SystemConfigTab() {
         setNewApplianceLabel("");
     };
 
-    const removeApplianceType = (val: string) => {
-        setApplianceTypes(applianceTypes.filter((a) => a.value !== val));
+    const requestRemoveApplianceType = (val: string) => {
+        if (usedApplianceTypes.has(val)) {
+            const label = applianceTypes.find((a) => a.value === val)?.label || val;
+            toast.error(`Cannot delete "${label}" — it is used by existing tickets`);
+            return;
+        }
+        const label = applianceTypes.find((a) => a.value === val)?.label || val;
+        setDeleteConfirm({ type: "appliance", value: val, label });
+    };
+
+    const confirmDelete = () => {
+        if (!deleteConfirm) return;
+        if (deleteConfirm.type === "category") {
+            setCategories(categories.filter((c) => c !== deleteConfirm.value));
+        } else {
+            setApplianceTypes(applianceTypes.filter((a) => a.value !== deleteConfirm.value));
+        }
+        setDeleteConfirm(null);
     };
 
     const handleSave = async () => {
@@ -349,14 +389,21 @@ function SystemConfigTab() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="flex flex-wrap gap-2">
-                        {(Array.isArray(categories) ? categories : []).map((cat) => (
-                            <Badge key={String(cat)} variant="secondary" className="gap-1 capitalize pr-1">
-                                {cat}
-                                <button onClick={() => removeCategory(cat)} className="ml-1 rounded-full hover:bg-muted p-0.5">
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        ))}
+                        {(Array.isArray(categories) ? categories : []).map((cat) => {
+                            const isUsed = usedCategories.has(cat);
+                            return (
+                                <Badge key={String(cat)} variant="secondary" className="gap-1 capitalize pr-1">
+                                    {cat}
+                                    <button
+                                        onClick={() => requestRemoveCategory(cat)}
+                                        className={`ml-1 rounded-full p-0.5 ${isUsed ? "opacity-30 cursor-not-allowed" : "hover:bg-muted"}`}
+                                        title={isUsed ? "In use by existing expenses" : "Remove"}
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </Badge>
+                            );
+                        })}
                     </div>
                     <div className="flex gap-2">
                         <Input
@@ -380,14 +427,21 @@ function SystemConfigTab() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="flex flex-wrap gap-2">
-                        {(Array.isArray(applianceTypes) ? applianceTypes : []).map((a) => (
-                            <Badge key={a.value} variant="secondary" className="gap-1 pr-1">
-                                {a.label}
-                                <button onClick={() => removeApplianceType(a.value)} className="ml-1 rounded-full hover:bg-muted p-0.5">
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        ))}
+                        {(Array.isArray(applianceTypes) ? applianceTypes : []).map((a) => {
+                            const isUsed = usedApplianceTypes.has(a.value);
+                            return (
+                                <Badge key={a.value} variant="secondary" className="gap-1 pr-1">
+                                    {a.label}
+                                    <button
+                                        onClick={() => requestRemoveApplianceType(a.value)}
+                                        className={`ml-1 rounded-full p-0.5 ${isUsed ? "opacity-30 cursor-not-allowed" : "hover:bg-muted"}`}
+                                        title={isUsed ? "In use by existing tickets" : "Remove"}
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </Badge>
+                            );
+                        })}
                     </div>
                     <div className="flex gap-2">
                         <Input
@@ -408,6 +462,27 @@ function SystemConfigTab() {
                 <Save className="h-4 w-4 mr-2" />
                 {saving ? "Saving..." : "Save Configuration"}
             </Button>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => { if (!open) setDeleteConfirm(null); }}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-warning" />
+                            Delete {deleteConfirm?.type === "category" ? "Category" : "Appliance Type"}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to remove <strong className="capitalize">{deleteConfirm?.label}</strong>? This will take effect after you save the configuration.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            Remove
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

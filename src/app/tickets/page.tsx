@@ -97,10 +97,14 @@ function TicketsContent() {
         issue_description: "",
         priority: "medium" as string,
         estimated_completion: undefined as Date | undefined,
-        created_at: undefined as Date | undefined,
+        created_at: new Date() as Date | undefined,
         labor_cost: "",
     });
     const [formTechIds, setFormTechIds] = useState<string[]>([]);
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+    const clearError = (field: string) => {
+        setFormErrors((prev) => { const next = { ...prev }; delete next[field]; return next; });
+    };
 
     useEffect(() => {
         if (searchParams.get("new") === "true") setDialogOpen(true);
@@ -156,8 +160,25 @@ function TicketsContent() {
         return () => { supabase.removeChannel(channel); };
     }, []);
 
+    const validateForm = (): boolean => {
+        const errors: Record<string, string> = {};
+        if (!form.customer_id) errors.customer_id = "Customer is required";
+        if (!form.appliance_type) errors.appliance_type = "Appliance type is required";
+        if (!form.appliance_brand.trim()) errors.appliance_brand = "Brand is required";
+        if (!form.appliance_model.trim()) errors.appliance_model = "Model is required";
+        if (!form.issue_description.trim()) errors.issue_description = "Issue description is required";
+        if (!form.priority) errors.priority = "Priority is required";
+        if (!form.created_at) errors.created_at = "Creation date is required";
+        if (!form.estimated_completion) errors.estimated_completion = "Estimated completion date is required";
+        if (form.labor_cost === "" || form.labor_cost === undefined || form.labor_cost === null) errors.labor_cost = "Labor cost is required";
+        if (formTechIds.length === 0) errors.technicians = "At least 1 technician must be assigned";
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!validateForm()) return;
         const { data: newTicket, error } = await supabase.from("service_tickets").insert({
             customer_id: form.customer_id || null,
             appliance_type: form.appliance_type as any,
@@ -173,7 +194,6 @@ function TicketsContent() {
         if (error) {
             toast.error(error.message);
         } else {
-            // Insert technician assignments
             if (formTechIds.length > 0 && newTicket) {
                 await supabase.from("ticket_technicians" as any).insert(
                     formTechIds.map((tid) => ({ ticket_id: newTicket.id, technician_id: tid }))
@@ -181,8 +201,9 @@ function TicketsContent() {
             }
             toast.success("Ticket created");
             setDialogOpen(false);
-            setForm({ customer_id: "", appliance_type: "other", appliance_brand: "", appliance_model: "", issue_description: "", priority: "medium", estimated_completion: undefined, created_at: undefined, labor_cost: "" });
+            setForm({ customer_id: "", appliance_type: "other", appliance_brand: "", appliance_model: "", issue_description: "", priority: "medium", estimated_completion: undefined, created_at: new Date(), labor_cost: "" });
             setFormTechIds([]);
+            setFormErrors({});
             fetchTickets();
         }
     };
@@ -275,7 +296,7 @@ function TicketsContent() {
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                         {isAdmin && (
-                            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setFormErrors({}); }}>
                                 <DialogTrigger asChild>
                                     <Button className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-2" /> New Ticket</Button>
                                 </DialogTrigger>
@@ -285,91 +306,100 @@ function TicketsContent() {
                                     </DialogHeader>
                                     <form onSubmit={handleCreate} className="space-y-4">
                                         <div className="space-y-2">
-                                            <Label>Customer</Label>
-                                            <Select value={form.customer_id} onValueChange={(v) => setForm({ ...form, customer_id: v })}>
-                                                <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
+                                            <Label>Customer *</Label>
+                                            <Select value={form.customer_id} onValueChange={(v) => { setForm({ ...form, customer_id: v }); clearError("customer_id"); }}>
+                                                <SelectTrigger className={formErrors.customer_id ? "border-destructive" : ""}><SelectValue placeholder="Select customer" /></SelectTrigger>
                                                 <SelectContent>
                                                     {customers.map((c) => (
                                                         <SelectItem key={c.id} value={c.id}>{c.full_name} — {c.phone}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
+                                            {formErrors.customer_id && <p className="text-xs text-destructive">{formErrors.customer_id}</p>}
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-2">
-                                                <Label>Appliance Type</Label>
-                                                <Select value={form.appliance_type} onValueChange={(v) => setForm({ ...form, appliance_type: v })}>
-                                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                                <Label>Appliance Type *</Label>
+                                                <Select value={form.appliance_type} onValueChange={(v) => { setForm({ ...form, appliance_type: v }); clearError("appliance_type"); }}>
+                                                    <SelectTrigger className={formErrors.appliance_type ? "border-destructive" : ""}><SelectValue /></SelectTrigger>
                                                     <SelectContent>
                                                         {(Array.isArray(applianceTypes) ? applianceTypes : DEFAULT_APPLIANCE_TYPES).map((a) => (
                                                             <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
+                                                {formErrors.appliance_type && <p className="text-xs text-destructive">{formErrors.appliance_type}</p>}
                                             </div>
                                             <div className="space-y-2">
-                                                <Label>Priority</Label>
-                                                <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
-                                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                                <Label>Priority *</Label>
+                                                <Select value={form.priority} onValueChange={(v) => { setForm({ ...form, priority: v }); clearError("priority"); }}>
+                                                    <SelectTrigger className={formErrors.priority ? "border-destructive" : ""}><SelectValue /></SelectTrigger>
                                                     <SelectContent>
                                                         {PRIORITIES.map((p) => (
                                                             <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
+                                                {formErrors.priority && <p className="text-xs text-destructive">{formErrors.priority}</p>}
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-2">
-                                                <Label>Brand</Label>
-                                                <Input value={form.appliance_brand} onChange={(e) => setForm({ ...form, appliance_brand: e.target.value })} placeholder="e.g. Samsung" />
+                                                <Label>Brand *</Label>
+                                                <Input value={form.appliance_brand} onChange={(e) => { setForm({ ...form, appliance_brand: e.target.value }); clearError("appliance_brand"); }} placeholder="e.g. Samsung" className={formErrors.appliance_brand ? "border-destructive" : ""} />
+                                                {formErrors.appliance_brand && <p className="text-xs text-destructive">{formErrors.appliance_brand}</p>}
                                             </div>
                                             <div className="space-y-2">
-                                                <Label>Model</Label>
-                                                <Input value={form.appliance_model} onChange={(e) => setForm({ ...form, appliance_model: e.target.value })} placeholder="e.g. WF45R" />
+                                                <Label>Model *</Label>
+                                                <Input value={form.appliance_model} onChange={(e) => { setForm({ ...form, appliance_model: e.target.value }); clearError("appliance_model"); }} placeholder="e.g. WF45R" className={formErrors.appliance_model ? "border-destructive" : ""} />
+                                                {formErrors.appliance_model && <p className="text-xs text-destructive">{formErrors.appliance_model}</p>}
                                             </div>
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Issue Description *</Label>
-                                            <Textarea value={form.issue_description} onChange={(e) => setForm({ ...form, issue_description: e.target.value })} required rows={3} placeholder="Describe the issue..." />
+                                            <Textarea value={form.issue_description} onChange={(e) => { setForm({ ...form, issue_description: e.target.value }); clearError("issue_description"); }} rows={3} placeholder="Describe the issue..." className={formErrors.issue_description ? "border-destructive" : ""} />
+                                            {formErrors.issue_description && <p className="text-xs text-destructive">{formErrors.issue_description}</p>}
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-2">
-                                                <Label>Creation Date</Label>
+                                                <Label>Creation Date *</Label>
                                                 <Popover>
                                                     <PopoverTrigger asChild>
-                                                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.created_at && "text-muted-foreground")}>
+                                                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.created_at && "text-muted-foreground", formErrors.created_at && "border-destructive")}>
                                                             <CalendarIcon className="mr-2 h-4 w-4" />
-                                                            {form.created_at ? format(form.created_at, "PPP") : "Today (default)"}
+                                                            {form.created_at ? format(form.created_at, "PPP") : "Pick a date"}
                                                         </Button>
                                                     </PopoverTrigger>
                                                     <PopoverContent className="w-auto p-0" align="start">
-                                                        <Calendar mode="single" selected={form.created_at} onSelect={(d) => setForm({ ...form, created_at: d })} initialFocus className="p-3 pointer-events-auto" />
+                                                        <Calendar mode="single" selected={form.created_at} onSelect={(d) => { setForm({ ...form, created_at: d }); clearError("created_at"); }} initialFocus className="p-3 pointer-events-auto" />
                                                     </PopoverContent>
                                                 </Popover>
+                                                {formErrors.created_at && <p className="text-xs text-destructive">{formErrors.created_at}</p>}
                                             </div>
                                             <div className="space-y-2">
-                                                <Label>Estimated Completion</Label>
+                                                <Label>Estimated Completion *</Label>
                                                 <Popover>
                                                     <PopoverTrigger asChild>
-                                                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.estimated_completion && "text-muted-foreground")}>
+                                                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.estimated_completion && "text-muted-foreground", formErrors.estimated_completion && "border-destructive")}>
                                                             <CalendarIcon className="mr-2 h-4 w-4" />
                                                             {form.estimated_completion ? format(form.estimated_completion, "PPP") : "Pick a date"}
                                                         </Button>
                                                     </PopoverTrigger>
                                                     <PopoverContent className="w-auto p-0" align="start">
-                                                        <Calendar mode="single" selected={form.estimated_completion} onSelect={(d) => setForm({ ...form, estimated_completion: d })} initialFocus className="p-3 pointer-events-auto" />
+                                                        <Calendar mode="single" selected={form.estimated_completion} onSelect={(d) => { setForm({ ...form, estimated_completion: d }); clearError("estimated_completion"); }} initialFocus className="p-3 pointer-events-auto" />
                                                     </PopoverContent>
                                                 </Popover>
+                                                {formErrors.estimated_completion && <p className="text-xs text-destructive">{formErrors.estimated_completion}</p>}
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>Labor Cost ($)</Label>
-                                            <Input type="number" step="0.01" min={0} value={form.labor_cost} onChange={(e) => setForm({ ...form, labor_cost: e.target.value })} placeholder="0.00" />
+                                            <Label>Labor Cost ($) *</Label>
+                                            <Input type="number" step="0.01" min={0} value={form.labor_cost} onChange={(e) => { setForm({ ...form, labor_cost: e.target.value }); clearError("labor_cost"); }} placeholder="0.00" className={formErrors.labor_cost ? "border-destructive" : ""} />
+                                            {formErrors.labor_cost && <p className="text-xs text-destructive">{formErrors.labor_cost}</p>}
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>Assign Technicians</Label>
-                                            <div className="space-y-1 max-h-[120px] overflow-y-auto border rounded p-2">
+                                            <Label>Assign Technicians * <span className="text-xs text-muted-foreground font-normal">(at least 1)</span></Label>
+                                            <div className={cn("space-y-1 max-h-[120px] overflow-y-auto border rounded p-2", formErrors.technicians && "border-destructive")}>
                                                 {technicians.map((t) => (
                                                     <label key={t.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5">
                                                         <Checkbox
@@ -377,12 +407,14 @@ function TicketsContent() {
                                                             onCheckedChange={(checked) => {
                                                                 if (checked) setFormTechIds([...formTechIds, t.id]);
                                                                 else setFormTechIds(formTechIds.filter((x) => x !== t.id));
+                                                                clearError("technicians");
                                                             }}
                                                         />
                                                         {t.full_name}
                                                     </label>
                                                 ))}
                                             </div>
+                                            {formErrors.technicians && <p className="text-xs text-destructive">{formErrors.technicians}</p>}
                                         </div>
                                         <Button type="submit" className="w-full">Create Ticket</Button>
                                     </form>

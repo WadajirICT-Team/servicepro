@@ -32,6 +32,38 @@ export default function CustomersPage() {
     const [form, setForm] = useState({ full_name: "", phone: "", email: "", address: "", notes: "" });
     const [editForm, setEditForm] = useState({ full_name: "", phone: "", email: "", address: "", notes: "" });
     const [submitting, setSubmitting] = useState(false);
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+    const validateCustomerForm = (values: typeof form): boolean => {
+        const errors: Record<string, string> = {};
+        const name = values.full_name.trim();
+        if (!name) {
+            errors.full_name = "Full name is required";
+        } else if (name.length < 2) {
+            errors.full_name = "Name must be at least 2 characters";
+        } else if (name.length > 50) {
+            errors.full_name = "Name must be 50 characters or less";
+        } else if (/[^a-zA-Z\s]/.test(name)) {
+            errors.full_name = "Name must contain only letters (no numbers or special characters)";
+        } else if (/\s{2,}/.test(name)) {
+            errors.full_name = "Name should not contain multiple consecutive spaces";
+        }
+        const phone = values.phone.trim();
+        if (!phone) {
+            errors.phone = "Phone number is required";
+        } else if (/[^0-9]/.test(phone)) {
+            errors.phone = "Phone must contain only numbers (no letters or special characters)";
+        }
+        if (!values.address.trim()) {
+            errors.address = "Address is required";
+        }
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const clearError = (field: string) => {
+        setFormErrors((prev) => { const next = { ...prev }; delete next[field]; return next; });
+    };
 
     type SortField = "full_name" | "phone" | "created_at";
     type SortDir = "asc" | "desc";
@@ -57,10 +89,11 @@ export default function CustomersPage() {
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!validateCustomerForm(form)) return;
         setSubmitting(true);
         const { error } = await supabase.from("customers").insert(form);
         if (error) toast.error(error.message);
-        else { toast.success("Customer added"); setDialogOpen(false); setForm({ full_name: "", phone: "", email: "", address: "", notes: "" }); fetchCustomers(); }
+        else { toast.success("Customer added"); setDialogOpen(false); setForm({ full_name: "", phone: "", email: "", address: "", notes: "" }); setFormErrors({}); fetchCustomers(); }
         setSubmitting(false);
     };
 
@@ -73,6 +106,7 @@ export default function CustomersPage() {
     const handleEdit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editTarget) return;
+        if (!validateCustomerForm(editForm)) return;
         setSubmitting(true);
         const { error } = await supabase.from("customers").update({
             full_name: editForm.full_name,
@@ -82,7 +116,7 @@ export default function CustomersPage() {
             notes: editForm.notes || null,
         }).eq("id", editTarget.id);
         if (error) toast.error(error.message);
-        else { toast.success("Customer updated"); setEditOpen(false); fetchCustomers(); }
+        else { toast.success("Customer updated"); setEditOpen(false); setFormErrors({}); fetchCustomers(); }
         setSubmitting(false);
     };
 
@@ -140,20 +174,23 @@ export default function CustomersPage() {
     const renderForm = (values: typeof form, onChange: (v: typeof form) => void, onSubmit: (e: React.FormEvent) => void, buttonLabel: string) => (
         <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
-                <Label>Full Name *</Label>
-                <Input value={values.full_name} onChange={(e) => onChange({ ...values, full_name: e.target.value })} required />
+                <Label>Full Name * <span className="text-xs text-muted-foreground font-normal">(2–50 characters, letters only)</span></Label>
+                <Input value={values.full_name} onChange={(e) => { onChange({ ...values, full_name: e.target.value }); clearError("full_name"); }} className={formErrors.full_name ? "border-destructive" : ""} placeholder="e.g. John Smith" />
+                {formErrors.full_name && <p className="text-xs text-destructive">{formErrors.full_name}</p>}
             </div>
             <div className="space-y-2">
-                <Label>Phone *</Label>
-                <Input value={values.phone} onChange={(e) => onChange({ ...values, phone: e.target.value })} required />
+                <Label>Phone * <span className="text-xs text-muted-foreground font-normal">(numbers only)</span></Label>
+                <Input value={values.phone} onChange={(e) => { onChange({ ...values, phone: e.target.value }); clearError("phone"); }} className={formErrors.phone ? "border-destructive" : ""} placeholder="e.g. 0612345678" />
+                {formErrors.phone && <p className="text-xs text-destructive">{formErrors.phone}</p>}
             </div>
             <div className="space-y-2">
                 <Label>Email</Label>
                 <Input type="email" value={values.email} onChange={(e) => onChange({ ...values, email: e.target.value })} />
             </div>
             <div className="space-y-2">
-                <Label>Address</Label>
-                <Textarea value={values.address} onChange={(e) => onChange({ ...values, address: e.target.value })} rows={2} />
+                <Label>Address *</Label>
+                <Textarea value={values.address} onChange={(e) => { onChange({ ...values, address: e.target.value }); clearError("address"); }} rows={2} className={formErrors.address ? "border-destructive" : ""} />
+                {formErrors.address && <p className="text-xs text-destructive">{formErrors.address}</p>}
             </div>
             <div className="space-y-2">
                 <Label>Notes</Label>
@@ -174,11 +211,11 @@ export default function CustomersPage() {
                         <p className="text-muted-foreground">{customers.length} customers</p>
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setFormErrors({}); }}>
                             <DialogTrigger asChild>
                                 <Button className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-2" /> Add Customer</Button>
                             </DialogTrigger>
-                            <DialogContent>
+                            <DialogContent className="max-h-[90vh] overflow-y-auto">
                                 <DialogHeader>
                                     <DialogTitle>Add Customer</DialogTitle>
                                     <DialogDescription>Create a new customer record.</DialogDescription>
@@ -255,8 +292,8 @@ export default function CustomersPage() {
                 </Card>
 
                 {/* Edit Dialog */}
-                <Dialog open={editOpen} onOpenChange={setEditOpen}>
-                    <DialogContent>
+                <Dialog open={editOpen} onOpenChange={(open) => { setEditOpen(open); if (!open) setFormErrors({}); }}>
+                    <DialogContent className="max-h-[90vh] overflow-y-auto">
                         <DialogHeader>
                             <DialogTitle>Edit Customer</DialogTitle>
                             <DialogDescription>Update customer information.</DialogDescription>
