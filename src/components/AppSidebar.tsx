@@ -59,20 +59,20 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="p-4">
+      <SidebarHeader className={cn("p-5", collapsed && "p-3 flex items-center justify-center")}>
         {!collapsed && (
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground font-bold text-sm">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground font-bold text-sm">
               SM
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-sm font-semibold text-sidebar-foreground">ServicePro</h2>
               <p className="text-xs text-sidebar-foreground/60">Management</p>
             </div>
           </div>
         )}
         {collapsed && (
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground font-bold text-sm">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground font-bold text-xs">
             S
           </div>
         )}
@@ -81,7 +81,7 @@ export function AppSidebar() {
       <SidebarSeparator />
 
       <SidebarContent>
-        <SidebarGroup>
+        <SidebarGroup className={cn(!collapsed && "p-3")}>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -106,7 +106,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-3">
+      <SidebarFooter className={cn("p-4", collapsed && "p-3")}>
         {!collapsed && (
           <div className="mb-2 rounded-md bg-sidebar-accent/50 p-2">
             <p className="text-xs font-medium text-sidebar-foreground truncate">{fullName || "User"}</p>

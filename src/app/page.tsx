@@ -10,6 +10,7 @@ import { Wrench, Clock, CheckCircle, DollarSign, Plus, ArrowRight, Trophy, Medal
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/RouteGuards";
+import { CreateTicketDialog } from "@/components/CreateTicketDialog";
 
 interface Stats {
     newTickets: number;
@@ -89,6 +90,7 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const router = useRouter();
     const { role } = useAuth();
+    const [createOpen, setCreateOpen] = useState(false);
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -168,7 +170,7 @@ export default function Dashboard() {
                         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
                         <p className="text-muted-foreground">Overview of your service operations</p>
                     </div>
-                    <Button className="w-full sm:w-auto" onClick={() => router.push("/tickets?new=true")}>
+                    <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
                         <Plus className="h-4 w-4 mr-2" /> New Ticket
                     </Button>
                 </div>
@@ -267,6 +269,7 @@ export default function Dashboard() {
                     </>
                 )}
             </div>
+                <CreateTicketDialog open={createOpen} onOpenChange={setCreateOpen} />
         </ProtectedRoute>
     );
 }

@@ -30,6 +30,36 @@ export default function CustomerDetailPage() {
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState({ full_name: "", phone: "", email: "", address: "", notes: "" });
     const [submitting, setSubmitting] = useState(false);
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+    const clearError = (field: string) => {
+        setFormErrors((prev) => { const next = { ...prev }; delete next[field]; return next; });
+    };
+
+    const validateForm = (): boolean => {
+        const errors: Record<string, string> = {};
+        const name = draft.full_name.trim();
+        if (!name) {
+            errors.full_name = "Full name is required";
+        } else if (!/^[a-zA-Z\s]+$/.test(name)) {
+            errors.full_name = "Name must contain letters only (no numbers or special characters)";
+        } else if (name.length < 2 || name.length > 50) {
+            errors.full_name = "Name must be 2–50 characters";
+        } else if (/\s{2,}/.test(name)) {
+            errors.full_name = "Name cannot have consecutive spaces";
+        }
+        const phone = draft.phone.trim();
+        if (!phone) {
+            errors.phone = "Phone number is required";
+        } else if (!/^[0-9+\-\s()]+$/.test(phone)) {
+            errors.phone = "Phone must contain numbers only";
+        }
+        if (!draft.address.trim()) {
+            errors.address = "Address is required";
+        }
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
 
     const fetchData = async () => {
         if (!id) return;
@@ -73,16 +103,17 @@ export default function CustomerDetailPage() {
     useEffect(() => { fetchData(); }, [id]);
 
     const handleSave = async () => {
+        if (!validateForm()) return;
         setSubmitting(true);
         const { error } = await supabase.from("customers").update({
-            full_name: draft.full_name,
-            phone: draft.phone,
+            full_name: draft.full_name.trim(),
+            phone: draft.phone.trim(),
             email: draft.email || null,
-            address: draft.address || null,
+            address: draft.address.trim() || null,
             notes: draft.notes || null,
         }).eq("id", id!);
         if (error) toast.error(error.message);
-        else { toast.success("Customer updated"); setEditing(false); fetchData(); }
+        else { toast.success("Customer updated"); setEditing(false); setFormErrors({}); fetchData(); }
         setSubmitting(false);
     };
 
@@ -97,6 +128,7 @@ export default function CustomerDetailPage() {
             });
         }
         setEditing(false);
+        setFormErrors({});
     };
 
     if (!customer) return <ProtectedRoute adminOnly><div className="p-6 text-muted-foreground">Loading...</div></ProtectedRoute>;
@@ -144,20 +176,23 @@ export default function CustomerDetailPage() {
                                 {editing ? (
                                     <>
                                         <div className="space-y-2">
-                                            <Label>Full Name *</Label>
-                                            <Input value={draft.full_name} onChange={(e) => setDraft({ ...draft, full_name: e.target.value })} />
+                                            <Label>Full Name * <span className="text-xs text-muted-foreground font-normal">(letters only, 2–50 chars)</span></Label>
+                                            <Input value={draft.full_name} onChange={(e) => { setDraft({ ...draft, full_name: e.target.value }); clearError("full_name"); }} className={formErrors.full_name ? "border-destructive" : ""} />
+                                            {formErrors.full_name && <p className="text-xs text-destructive">{formErrors.full_name}</p>}
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>Phone *</Label>
-                                            <Input value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
+                                            <Label>Phone * <span className="text-xs text-muted-foreground font-normal">(numbers only)</span></Label>
+                                            <Input value={draft.phone} onChange={(e) => { setDraft({ ...draft, phone: e.target.value }); clearError("phone"); }} className={formErrors.phone ? "border-destructive" : ""} />
+                                            {formErrors.phone && <p className="text-xs text-destructive">{formErrors.phone}</p>}
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Email</Label>
                                             <Input value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>Address</Label>
-                                            <Textarea value={draft.address} onChange={(e) => setDraft({ ...draft, address: e.target.value })} rows={2} />
+                                            <Label>Address *</Label>
+                                            <Textarea value={draft.address} onChange={(e) => { setDraft({ ...draft, address: e.target.value }); clearError("address"); }} rows={2} className={formErrors.address ? "border-destructive" : ""} />
+                                            {formErrors.address && <p className="text-xs text-destructive">{formErrors.address}</p>}
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Notes</Label>

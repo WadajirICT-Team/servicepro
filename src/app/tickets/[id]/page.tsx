@@ -13,9 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { ArrowLeft, Plus, Trash2, Printer, CalendarIcon, Undo2, Save, Users } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Printer, CalendarIcon, Undo2, Save, Users, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ export default function TicketDetailPage() {
     const [newNote, setNewNote] = useState("");
     const [newPart, setNewPart] = useState({ part_name: "", quantity: 1, unit_cost: 0 });
     const [showInvoice, setShowInvoice] = useState(false);
+    const [deletePartTarget, setDeletePartTarget] = useState<any>(null);
 
     // Buffered edits
     const [draft, setDraft] = useState<Record<string, any>>({});
@@ -291,7 +293,7 @@ export default function TicketDetailPage() {
                                         <div className="flex items-center gap-3">
                                             <span className="text-muted-foreground">{p.quantity} × ${Number(p.unit_cost).toFixed(2)}</span>
                                             <span className="font-medium">${Number(p.total_cost).toFixed(2)}</span>
-                                            {isAdmin && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deletePart(p.id)}>
+                                            {isAdmin && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => setDeletePartTarget(p)}>
                                                 <Trash2 className="h-3 w-3" />
                                             </Button>}
                                         </div>
@@ -386,6 +388,30 @@ export default function TicketDetailPage() {
                     </div>
                 </div>
             </div>
+
+                {/* Delete Part Confirmation */}
+                <AlertDialog open={!!deletePartTarget} onOpenChange={(open) => { if (!open) setDeletePartTarget(null); }}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle className="flex items-center gap-2">
+                                <AlertTriangle className="h-5 w-5 text-warning" />
+                                Delete Part
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to delete <strong>{deletePartTarget?.part_name}</strong> (${Number(deletePartTarget?.total_cost || 0).toFixed(2)})? This will recalculate the ticket total.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={() => { deletePart(deletePartTarget?.id); setDeletePartTarget(null); }}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                                Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
         </ProtectedRoute>
     );
 }
